@@ -17,6 +17,7 @@ class GPTModel:
         self.tokenizer = GPT2Tokenizer.from_pretrained(self.gpt_model)
         self.model = GPT2LMHeadModel.from_pretrained(self.gpt_model)
         self.model.to(self.device)
+        print("=== MODEL INITIALIZED === ")
 
     def adjustlength(self, length: int) -> int:
         max_sequence_length = self.model.config.max_position_embeddings
@@ -74,8 +75,8 @@ class GPTModel:
 
 
 class MainHandler(tornado.web.RequestHandler):
-    def initialize(self):
-        self.gpt_model = GPTModel(42)
+    def initialize(self, model: GPTModel):
+        self.gpt_model = model
 
     def set_default_headers(self):
         self.set_header("Content-Type", 'application/json')
@@ -95,7 +96,7 @@ class MainHandler(tornado.web.RequestHandler):
 
 if __name__ == "__main__":
     app = tornado.web.Application([
-        (r"/", MainHandler),
+        (r"/", MainHandler, dict(model=GPTModel(42)))
     ])
     app.listen(8888)
     tornado.ioloop.IOLoop.current().start()
