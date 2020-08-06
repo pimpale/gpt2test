@@ -4,6 +4,7 @@ import torch
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 import tornado.ioloop
 import tornado.web
+import json
 
 
 class GPTModel:
@@ -13,12 +14,12 @@ class GPTModel:
         torch.cuda.manual_seed_all(seed)
         self.device = "cuda"
         self.gpt_model = "gpt2-xl"
-        tokenizer = GPT2Tokenizer.from_pretrained(self.gpt_model)
+        self.tokenizer = GPT2Tokenizer.from_pretrained(self.gpt_model)
         self.model = GPT2LMHeadModel.from_pretrained(self.gpt_model)
         self.model.to(self.device)
 
     def adjustlength(self, length: int) -> int:
-        max_sequence_length = self.model.max_position_embeddings
+        max_sequence_length = self.model.config.max_position_embeddings
         if length < 0 and max_sequence_length > 0:
             length = max_sequence_length
         elif 0 < max_sequence_length < length:
@@ -29,7 +30,7 @@ class GPTModel:
         return length
 
     def generate(self,
-                 prompt: str,
+                 prompt_str: str,
                  temperature: float,
                  rep_penalty: float,
                  nsequences: int,
@@ -37,18 +38,18 @@ class GPTModel:
                  top_p: float,
                  top_k: float) -> [str]:
 
-        encoded_prompt = tokenizer.encode(prompt, add_special_tokens=False,
-                                          return_tensors="pt")
-        encoded_prompt = encoded_prompt.to(self.device)
+        eprompt = self.tokenizer.encode(prompt_str, add_special_tokens=False,
+                                        return_tensors="pt")
+        eprompt = eprompt.to(self.device)
 
-        if encoded_prompt.size()[-1] == 0:
+        if eprompt.size()[-1] == 0:
             input_ids = None
         else:
-            input_ids = encoded_prompt
+            input_ids = eprompt
 
-        output_sequences = model.generate(
+        output_sequences = self.model.generate(
             input_ids=input_ids,
-            max_length=self.adjustlength(length) + len(encoded_prompt[0]),
+            max_length=self.adjustlength(length) + len(eprompt[0]),
             temperature=temperature,
             top_k=top_k,
             top_p=top_p,
@@ -64,12 +65,11 @@ class GPTModel:
         ret = []
         for generated_sequence in output_sequences:
             # Decode text
-            decode_text = tokenizer.decode(generated_sequence.tolist(),
-                                           clean_up_tokenization_spaces=True)
-            decode_prompt = tokenizer.decode(encoded_prompt[0],
-                                             clean_up_tokenization_spaces=True)
-
-            ret.append(decode_text[len(decode_prompt):])
+            dtext = self.tokenizer.decode(generated_sequence.tolist(),
+                                          clean_up_tokenization_spaces=True)
+            dprompt = self.tokenizer.decode(eprompt[0],
+                                            clean_up_tokenization_spaces=True)
+            ret.append(dtext[len(dprompt):])
         return ret
 
 
@@ -77,16 +77,20 @@ class MainHandler(tornado.web.RequestHandler):
     def initialize(self):
         self.gpt_model = GPTModel(42)
 
+    def set_default_headers(self):
+        self.set_header("Content-Type", 'application/json')
+
     def get(self):
-        self.gpt_model.generate(
-            prompt=self.get_argument("prompt", ""),
+        generated_sequences = self.gpt_model.generate(
+            prompt_str=self.get_argument("prompt", ""),
             temperature=float(self.get_argument("temperature", "0.7")),
             rep_penalty=float(self.get_argument("repetition_penalty", "1")),
             nsequences=int(self.get_argument("nsequences", "1")),
             length=int(self.get_argument("length", "100")),
             top_p=float(self.get_argument("top_p", "0.9")),
-            top_k=float(self.get_argument("top_k", "0")),
+            top_k=int(self.get_argument("top_k", "0")),
         )
+        return self.write(json.dumps(generated_sequences))
 
 
 if __name__ == "__main__":
