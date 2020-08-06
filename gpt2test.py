@@ -1,72 +1,45 @@
 #!/usr/bin/env python3
 # coding=utf-8
-# Copyright 2018 Google AI, Google Brain and Carnegie Mellon University Authors and the HuggingFace Inc. team.
-# Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-""" Conditional text generation with the auto-regressive models of the library (GPT/GPT-2/CTRL/Transformer-XL/XLNet)
-"""
-
-
-import argparse
-import logging
-
-import numpy as np
 import torch
-
-from transformers import (
-    GPT2LMHeadModel,
-    GPT2Tokenizer,
-)
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
+import tornado.ioloop
+import tornado.web
 
 
-def set_seed(seed):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+class GPTModel:
 
+    def __init__(self, seed: int):
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        self.device = "cuda"
+        self.gpt_model = "gpt2-xl"
+        tokenizer = GPT2Tokenizer.from_pretrained(self.gpt_model)
+        self.model = GPT2LMHeadModel.from_pretrained(self.gpt_model)
+        self.model.to(self.device)
 
-def adjust_length_to_model(length, max_sequence_length):
-    if length < 0 and max_sequence_length > 0:
-        length = max_sequence_length
-    elif 0 < max_sequence_length < length:
-        length = max_sequence_length  # No generation bigger than model size
-    elif length < 0:
-        length = MAX_LENGTH  # avoid infinite loop
-    return length
+    def adjustlength(self, length: int) -> int:
+        max_sequence_length = self.model.max_position_embeddings
+        if length < 0 and max_sequence_length > 0:
+            length = max_sequence_length
+        elif 0 < max_sequence_length < length:
+            # No generation bigger than model size
+            length = max_sequence_length
+        elif length < 0:
+            length = MAX_LENGTH  # avoid infinite loop
+        return length
 
+    def generate(self,
+                 prompt: str,
+                 temperature: float,
+                 rep_penalty: float,
+                 nsequences: int,
+                 length: int,
+                 top_p: float,
+                 top_k: float) -> [str]:
 
-def main():
-    set_seed(42)
-
-    device = "cuda"
-    length = 500
-    temperature = 0.7
-    k = 0
-    p = 0.9
-    repetition_penalty = 1
-    num_return_sequences = 1
-
-    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-    model = GPT2LMHeadModel.from_pretrained("gpt2")
-    model.to(device)
-
-    length = adjust_length_to_model(length, model.config.max_position_embeddings)
-
-    while True:
-        prompt_text = input("Model prompt >>> ")
-        encoded_prompt = tokenizer.encode(prompt_text, add_special_tokens=False, return_tensors="pt")
-        encoded_prompt = encoded_prompt.to(device)
+        encoded_prompt = tokenizer.encode(prompt, add_special_tokens=False,
+                                          return_tensors="pt")
+        encoded_prompt = encoded_prompt.to(self.device)
 
         if encoded_prompt.size()[-1] == 0:
             input_ids = None
@@ -75,38 +48,50 @@ def main():
 
         output_sequences = model.generate(
             input_ids=input_ids,
-            max_length=length + len(encoded_prompt[0]),
+            max_length=self.adjustlength(length) + len(encoded_prompt[0]),
             temperature=temperature,
-            top_k=k,
-            top_p=p,
-            repetition_penalty=repetition_penalty,
+            top_k=top_k,
+            top_p=top_p,
+            repetition_penalty=rep_penalty,
             do_sample=True,
-            num_return_sequences=num_return_sequences,
+            num_return_sequences=nsequences,
         )
 
         # Remove the batch dimension when returning multiple sequences
         if len(output_sequences.shape) > 2:
             output_sequences.squeeze_()
 
-        generated_sequences = []
-
-        for generated_sequence_idx, generated_sequence in enumerate(output_sequences):
-            print("=== GENERATED SEQUENCE {} ===".format(generated_sequence_idx + 1))
-            generated_sequence = generated_sequence.tolist()
-
+        ret = []
+        for generated_sequence in output_sequences:
             # Decode text
-            text = tokenizer.decode(generated_sequence, clean_up_tokenization_spaces=True)
+            decode_text = tokenizer.decode(generated_sequence.tolist(),
+                                           clean_up_tokenization_spaces=True)
+            decode_prompt = tokenizer.decode(encoded_prompt[0],
+                                             clean_up_tokenization_spaces=True)
 
-            # Add the prompt at the beginning of the sequence. Remove the excess text that was used for pre-processing
-            total_sequence = (
-                prompt_text + text[len(tokenizer.decode(encoded_prompt[0], clean_up_tokenization_spaces=True)) :]
-            )
+            ret.append(decode_text[len(decode_prompt):])
+        return ret
 
-            generated_sequences.append(total_sequence)
-            print(total_sequence)
 
-    return generated_sequences
+class MainHandler(tornado.web.RequestHandler):
+    def initialize(self):
+        self.gpt_model = GPTModel(42)
+
+    def get(self):
+        self.gpt_model.generate(
+            prompt=self.get_argument("prompt", ""),
+            temperature=float(self.get_argument("temperature", "0.7")),
+            rep_penalty=float(self.get_argument("repetition_penalty", "1")),
+            nsequences=int(self.get_argument("nsequences", "1")),
+            length=int(self.get_argument("length", "100")),
+            top_p=float(self.get_argument("top_p", "0.9")),
+            top_k=float(self.get_argument("top_k", "0")),
+        )
 
 
 if __name__ == "__main__":
-    main()
+    app = tornado.web.Application([
+        (r"/", MainHandler),
+    ])
+    app.listen(8888)
+    tornado.ioloop.IOLoop.current().start()
