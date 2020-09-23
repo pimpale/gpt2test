@@ -87,7 +87,7 @@ class MainHandler(tornado.web.RequestHandler):
             temperature=float(self.get_argument("temperature", "0.7")),
             rep_penalty=float(self.get_argument("repetition_penalty", "1")),
             nsequences=int(self.get_argument("nsequences", "1")),
-            length=int(self.get_argument("length", "100")),
+            length=int(self.get_argument("length", "40")),
             top_p=float(self.get_argument("top_p", "0.9")),
             top_k=int(self.get_argument("top_k", "0")),
         )
