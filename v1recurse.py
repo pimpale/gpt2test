@@ -7,13 +7,13 @@ import sys
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
-def qaify(question: str, answer:str) -> str:
-    return f"Q: {question}\nA: {answer}\nEOF\n"
+def genprompt(context:str, q:str) -> [str]:
+     def qaify(question: str, answer:str) -> str:
+         return f"Q: {question}\nA: {answer}\nEOF\n"
 
-def qify(question: str) -> str:
-    return f"Q: {question}"
+     def qify(question: str) -> str:
+         return f"Q: {question}"
 
-def genprompt(x:str) -> [str]:
     return  (qaify(
       "Explain \"Elephants are related to Rhinocerouses\"",
       "Both Elephants and Rhinocerouses are pachyderms. Elephants and Rhinocerouses are large herbivores."
@@ -39,13 +39,14 @@ def gpt2complete(fact:str) -> [str]:
     facts = []
     completions = requests.get('http://localhost:8888', {
       'prompt': genprompt(fact),
-      'nsequences':2
+      'nsequences':1
     }).json()
 
     for c in completions:
         facts.extend(answerExtract(c))
 
     return facts
+
 
 def iter(fact:str, n:int):
     if n <= 0:
@@ -55,4 +56,4 @@ def iter(fact:str, n:int):
       "child": list(map(lambda x: iter(x, n-1), gpt2complete(fact)))
     }
 
-print(json.dumps(iter('The stock market crashed sunday', 2)))
+print(json.dumps(iter('The stock market crashed Sunday', 2)))
