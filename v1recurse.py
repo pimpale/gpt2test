@@ -7,26 +7,28 @@ import sys
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
-def genprompt(context:str, q:str) -> [str]:
-     def qaify(question: str, answer:str) -> str:
-         return f"Q: {question}\nA: {answer}\nEOF\n"
+def genprompt(q:str) -> [str]:
+    def qaify(question: str, answer:str) -> str:
+        return f"Q: {question}\nA: {answer}\nEOF\n"
 
-     def qify(question: str) -> str:
-         return f"Q: {question}"
+    def qify(question: str) -> str:
+        return f"Q: {question}"
 
-    return  (qaify(
-      "Explain \"Elephants are related to Rhinocerouses\"",
-      "Both Elephants and Rhinocerouses are pachyderms. Elephants and Rhinocerouses are large herbivores."
-    ) +
-    qaify(
-      "Explain \"The heart is a component of the cardiovascular system\"",
-      "The heart serves to pump blood in the body. The heart draws in oxygen poor blood from the veins and pumps it into the lungs."
-      ) +
-    qify( f"Explain \"{x}\"")
+    ex1 = qaify(
+        "Explain \"Elephants are related to Rhinocerouses\"",
+        "Both Elephants and Rhinocerouses are pachyderms. Elephants and Rhinocerouses are large herbivores."
     )
 
+    ex2 = qaify(
+        "Explain \"The heart is a component of the cardiovascular system\"",
+        "The heart serves to pump blood in the body. The heart draws in oxygen poor blood from the veins and pumps it into the lungs."
+    )
+
+    return ex1 + ex2 + qify(f"Explain \"{q}\"")
+
 def answerExtract(x:str) -> [str]:
-    eprint (x)
+    eprint(x);
+    eprint("====");
     ans = x.split('EOF')[0].split(': ')[1]
     facts = []
     for s in ans.split('.'):
@@ -39,7 +41,7 @@ def gpt2complete(fact:str) -> [str]:
     facts = []
     completions = requests.get('http://localhost:8888', {
       'prompt': genprompt(fact),
-      'nsequences':1
+      'nsequences':2
     }).json()
 
     for c in completions:
