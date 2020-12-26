@@ -1,14 +1,17 @@
 #!/bin/python3
 
+from typing import List
 import requests
 import json
 import sys
 
+
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
-def genprompt(q:str) -> [str]:
-    def qaify(question: str, answer:str) -> str:
+
+def genprompt(q: str) -> List[str]:
+    def qaify(question: str, answer: str) -> str:
         return f"Q: {question}\nA: {answer}\nEOF\n"
 
     def qify(question: str) -> str:
@@ -26,7 +29,8 @@ def genprompt(q:str) -> [str]:
 
     return ex1 + ex2 + qify(f"Explain \"{q}\"")
 
-def answerExtract(x:str) -> [str]:
+
+def answerExtract(x: str) -> List[str]:
     eprint(x);
     eprint("====");
     ans = x.split('EOF')[0].split(': ')[1]
@@ -37,7 +41,8 @@ def answerExtract(x:str) -> [str]:
             facts.append(s)
     return facts
 
-def gpt2complete(fact:str) -> [str]:
+
+def gpt2complete(fact: str) -> List[str]:
     facts = []
     completions = requests.get('http://localhost:8888', {
       'prompt': genprompt(fact),
@@ -50,12 +55,13 @@ def gpt2complete(fact:str) -> [str]:
     return facts
 
 
-def iter(fact:str, n:int):
+def iter(fact: str, n: int):
     if n <= 0:
         return fact
     return {
       "root": fact,
       "child": list(map(lambda x: iter(x, n-1), gpt2complete(fact)))
     }
+
 
 print(json.dumps(iter('The stock market crashed Sunday', 2)))

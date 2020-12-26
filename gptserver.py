@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # coding=utf-8
+from typing import List
 import torch
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 import tornado.ioloop
@@ -37,7 +38,7 @@ class GPTModel:
                  nsequences: int,
                  length: int,
                  top_p: float,
-                 top_k: float) -> [str]:
+                 top_k: float) -> List[str]:
 
         eprompt = self.tokenizer.encode(prompt_str, add_special_tokens=False,
                                         return_tensors="pt")
