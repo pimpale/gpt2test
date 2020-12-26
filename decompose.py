@@ -12,22 +12,28 @@ def eprint(*args, **kwargs):
 
 def genprompt(q: str) -> str:
     def qaify(complicated: str, simplified: List[str]) -> str:
-        return f"Complicated: {complicated}\nSimple: {' '.join(simplified)}\nEOF\n"
+        return f"Explain: \"{complicated}\"\nSimple: {' '.join(simplified)} EOF\n"
 
     def qify(complicated: str) -> str:
-        return f"Complicated: {complicated}\n"
+        return f"Explain: \"{complicated}\"\n"
 
     ex1 = qaify(
         "Both Elephants and Rhinocerouses are pachyderms that eat shrubs.",
         [
-          "Elephants are pachyderms.",
-          "Rhinocerouses are pachyderms.",
-          "Elephants eat shrubs.",
-          "Rhinocerouses eat shrubs.",
+          "Both Elephants and Rhinocerouses are pachyderms.",
+          "Both Elephants and Rhinocerouses eat shrubs.",
         ]
     )
 
     ex2 = qaify(
+        "Both ships ran out of food, driving the sailors to resort to cannabalism.",
+        [
+          "Both ships ran out of food.",
+          "The sailors resorted to cannabalism."
+        ]
+    )
+
+    ex3 = qaify(
         "The heart serves to pump blood in the body, drawing in oxygen poor blood from the veins and pumping it into the lungs.",
         [
           "The heart serves to pump blood in the body.",
@@ -36,7 +42,9 @@ def genprompt(q: str) -> str:
         ]
     )
 
-    return ex1 + ex2 + qify(q)
+    prompt = "Task: Break down the complex sentence into simpler sentences.\n"
+
+    return prompt + ex1 + ex2 + ex3 + qify(q)
 
 
 def answerExtract(x: str) -> List[str]:
@@ -63,14 +71,8 @@ def gpt2complete(fact: str) -> List[str]:
 
     return facts
 
-
-def iter(fact: str, n: int):
-    if n <= 0:
-        return fact
-    return {
-      "root": fact,
-      "child": list(map(lambda x: iter(x, n-1), gpt2complete(fact)))
-    }
+print(json.dumps(gpt2complete("Today is Thursday, and the test is on Friday.")))
+print(json.dumps(gpt2complete("She had just bought two gorgeous dresses, so she needed to get matching shoes.")))
+print(json.dumps(gpt2complete("I really want to see the game, but the mall is having a huge sale today.")))
 
 
-print(json.dumps(iter('The stock market crashed Sunday', 2)))

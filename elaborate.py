@@ -10,7 +10,7 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def genprompt(q: str) -> List[str]:
+def genprompt(q: str) -> str:
     def qaify(question: str, answer: str) -> str:
         return f"Q: {question}\nA: {answer}\nEOF\n"
 
@@ -18,12 +18,12 @@ def genprompt(q: str) -> List[str]:
         return f"Q: {question}"
 
     ex1 = qaify(
-        "Explain \"Elephants are related to Rhinocerouses\"",
+        "Explain \"Elephants are related to Rhinocerouses.\"",
         "Both Elephants and Rhinocerouses are pachyderms. Elephants and Rhinocerouses are large herbivores."
     )
 
     ex2 = qaify(
-        "Explain \"The heart is a component of the cardiovascular system\"",
+        "Explain \"The heart is a component of the cardiovascular system.\"",
         "The heart serves to pump blood in the body. The heart draws in oxygen poor blood from the veins and pumps it into the lungs."
     )
 
@@ -31,8 +31,8 @@ def genprompt(q: str) -> List[str]:
 
 
 def answerExtract(x: str) -> List[str]:
-    eprint(x);
-    eprint("====");
+    eprint(x)
+    eprint("====")
     ans = x.split('EOF')[0].split(': ')[1]
     facts = []
     for s in ans.split('.'):
@@ -44,9 +44,9 @@ def answerExtract(x: str) -> List[str]:
 
 def gpt2complete(fact: str) -> List[str]:
     facts = []
-    completions = requests.get('http://localhost:8888', {
+    completions = requests.get('http://localhost:8888', data={
       'prompt': genprompt(fact),
-      'nsequences':2
+      'nsequences': 2
     }).json()
 
     for c in completions:
@@ -64,4 +64,4 @@ def iter(fact: str, n: int):
     }
 
 
-print(json.dumps(iter('The stock market crashed Sunday', 2)))
+print(json.dumps(iter('The stock market crashed Sunday.', 2)))
