@@ -44,7 +44,7 @@ def answerExtract(x: str) -> List[str]:
 
 def gpt2complete(fact: str) -> List[str]:
     facts = []
-    completions = requests.get('http://localhost:8888', data={
+    completions = requests.get('http://localhost:8080', data={
       'prompt': genprompt(fact),
       'nsequences': 2
     }).json()
