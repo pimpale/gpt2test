@@ -1,0 +1,6 @@
+#!/bin/fish
+
+while true;
+  python3 gptserver.py
+  echo frick
+end
